@@ -14,8 +14,10 @@ type ProxyConfig = {
 }
 
 type SpriteOptionsType = {
-    imgUrl: string;
-    jsonUrl: string;
+    imgUrl?: string;
+    canvas?: HTMLCanvasElement | OffscreenCanvas
+    jsonUrl?: string;
+    jsonObj?: object;
     sourceName?: string;
 }
 
@@ -95,11 +97,11 @@ function handlerURL(path: string, configs: ProxyConfig = {}) {
     return EMPTY_STRING;
 }
 
-function loadSprite(options: SpriteOptionsType = { imgUrl: '', jsonUrl: '' }) {
+function loadSprite(options: SpriteOptionsType) {//= { imgUrl: '', canvas: null, jsonUrl: '', jsonObj: null }
     return new Promise((resolve, reject) => {
-        const { imgUrl, jsonUrl } = options;
-        if (!imgUrl || !jsonUrl) {
-            reject(new Error('not find imgUrl/jsonUrl from options'));
+        const { imgUrl, canvas, jsonUrl, jsonObj } = options;
+        if ((!imgUrl && !canvas) || (!jsonUrl && !jsonObj)) {
+            reject(new Error('not find (imgUrl|canvas) and (jsonUrl|jsonObj) from options'));
             console.error(options);
             return;
         }
@@ -147,21 +149,41 @@ function loadSprite(options: SpriteOptionsType = { imgUrl: '', jsonUrl: '' }) {
             resolve(icons);
         }
 
-        Ajax.getJSON(jsonUrl, {}, (err, json) => {
-            if (err) {
-                reject(err);
-                return;
-            }
+        function loadImg() {
             const img = new Image();
             img.onload = () => {
-                parseSprite(json, img);
             };
             img.onerror = (err) => {
                 reject(err);
                 return;
             };
             Ajax.getImage(img, imgUrl, {});
-        });
+
+        }
+
+        if (jsonObj) {
+            if (options.canvas) {
+                parseSprite(jsonObj, canvas);
+            } else {
+                loadImg()
+            }
+        } else {
+            Ajax.getJSON(jsonUrl, {}, (err, json) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                if (options.canvas) {
+                    parseSprite(jsonObj, canvas);
+                } else {
+                    loadImg()
+                }
+            });
+        }
+
+
+
+
     });
 }
 
