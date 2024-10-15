@@ -13,11 +13,17 @@ type ProxyConfig = {
     [key: string]: ProxyItemType
 }
 
+// type SpriteOptionsTypebak = {
+//     imgUrl?: string;
+//     canvas?: HTMLCanvasElement | OffscreenCanvas
+//     jsonUrl?: string;
+//     jsonObj?: object;
+//     sourceName?: string;
+// }
+
 type SpriteOptionsType = {
-    imgUrl?: string;
-    canvas?: HTMLCanvasElement | OffscreenCanvas
-    jsonUrl?: string;
-    jsonObj?: object;
+    imgResource: string | HTMLCanvasElement | OffscreenCanvas
+    jsonResource: string | object
     sourceName?: string;
 }
 
@@ -99,9 +105,9 @@ function handlerURL(path: string, configs: ProxyConfig = {}) {
 
 function loadSprite(options: SpriteOptionsType) {//= { imgUrl: '', canvas: null, jsonUrl: '', jsonObj: null }
     return new Promise((resolve, reject) => {
-        const { imgUrl, canvas, jsonUrl, jsonObj } = options;
-        if ((!imgUrl && !canvas) || (!jsonUrl && !jsonObj)) {
-            reject(new Error('not find (imgUrl|canvas) and (jsonUrl|jsonObj) from options'));
+        const { imgResource, jsonResource } = options;
+        if (!imgResource || !jsonResource) {
+            reject(new Error('not find imgResource|jsonResource from options'));
             console.error(options);
             return;
         }
@@ -149,9 +155,10 @@ function loadSprite(options: SpriteOptionsType) {//= { imgUrl: '', canvas: null,
             resolve(icons);
         }
 
-        function loadImg() {
+        function loadImg(json, imgUrl) {
             const img = new Image();
             img.onload = () => {
+                parseSprite(json, img);
             };
             img.onerror = (err) => {
                 reject(err);
@@ -161,31 +168,136 @@ function loadSprite(options: SpriteOptionsType) {//= { imgUrl: '', canvas: null,
 
         }
 
-        if (jsonObj) {
-            if (options.canvas) {
-                parseSprite(jsonObj, canvas);
-            } else {
-                loadImg()
-            }
-        } else {
-            Ajax.getJSON(jsonUrl, {}, (err, json) => {
+        if (typeof (jsonResource) === 'string') {
+            Ajax.getJSON(jsonResource, {}, (err, json) => {
                 if (err) {
                     reject(err);
                     return;
                 }
-                if (options.canvas) {
-                    parseSprite(jsonObj, canvas);
+                if (typeof (imgResource) === 'string') {
+                    loadImg(json, imgResource)
                 } else {
-                    loadImg()
+                    parseSprite(json, imgResource);
                 }
             });
+        } else {
+            if (typeof (imgResource) === 'string') {
+                loadImg(jsonResource, imgResource)
+            } else {
+                parseSprite(jsonResource, imgResource);
+            }
         }
-
-
-
-
     });
 }
+
+// async function loadSprite(options: SpriteOptionsType) {//= { imgUrl: '', canvas: null, jsonUrl: '', jsonObj: null }
+//     function loadImage(src, img) {
+//         return new Promise(function (resolve, reject) {
+//             img.src = src;
+//             img.onload = function () {
+//                 resolve(img);
+//             }
+//             img.onerror = function () {
+//                 reject();
+//             }
+//         })
+//     }
+
+//     const { imgResouce, json } = options;
+
+//     let jsonObj = json
+//     if (typeof (json) === 'string') {
+//         const response = await fetch(json);
+//         jsonObj = await response.json();
+//     }
+
+//     let image
+//     if (typeof (imgResouce) === 'string') {
+//         image = new Image();
+//         await loadImage(imgResouce, image)
+//     } else {
+//         image = imgResouce
+//     }
+
+
+//     return new Promise((resolve, reject) => {
+//         const { imgResouce, json } = options;
+//         if (!imgResouce || !json) {
+//             reject(new Error('not find imgResouce|json from options'));
+//             console.error(options);
+//             return;
+//         }
+
+//         function getCtx(canvas: HTMLCanvasElement, width: number, height: number) {
+//             canvas.width = width;
+//             canvas.height = height;
+//             const ctx = canvas.getContext('2d');
+//             ctx.clearRect(0, 0, width, height);
+//             return ctx;
+//         }
+
+//         function parseSprite(json = {}, image: CanvasImageSource) {
+//             const canvas = createCanvas();
+//             if (!canvas) {
+//                 reject(new Error('can not create canvas'));
+//                 return;
+//             }
+//             const icons = [];
+//             for (const name in json) {
+//                 const spriteItem = json[name];
+//                 icons.push({
+//                     name,
+//                     spriteItem
+//                 });
+//             }
+//             const offscreenCanvas = createOffscreenCanvas();
+//             const sourceName = options.sourceName || "";
+//             icons.forEach(icon => {
+//                 const { name, spriteItem } = icon;
+//                 const { x, y, width, height } = spriteItem;
+//                 let resource;
+//                 if (offscreenCanvas) {
+//                     const ctx = getCtx(offscreenCanvas as any, width, height);
+//                     ctx.drawImage(image, x, y, width, height, 0, 0, width, height);
+//                     resource = offscreenCanvas.transferToImageBitmap();
+//                 } else {
+//                     const ctx = getCtx(canvas, width, height);
+//                     ctx.drawImage(image, x, y, width, height, 0, 0, width, height);
+//                     resource = canvas.toDataURL();
+//                 }
+//                 icon.resource = resource;
+//                 ResourceProxy.addResource(sourceName + name, resource);
+//             });
+//             resolve(icons);
+//         }
+
+//         parseSprite(jsonObj, image);
+
+
+
+
+
+//         // if (jsonObj) {
+//         //     if (options.canvas) {
+//         //         parseSprite(jsonObj, canvas);
+//         //     } else {
+//         //         loadImg(jsonObj, imgUrl)
+//         //     }
+//         // } else {
+//         //     Ajax.getJSON(jsonUrl, {}, (err, json) => {
+//         //         if (err) {
+//         //             reject(err);
+//         //             return;
+//         //         }
+//         //         if (options.canvas) {
+//         //             parseSprite(json, canvas);
+//         //         } else {
+//         //             loadImg(json, imgUrl)
+//         //         }
+//         //     });
+//         // }
+//     });
+// }
 
 function loadSvgs(svgs: string | Array<SVGSymbolElement> | SVGOptionsType) {
     return new Promise((resolve, reject) => {
